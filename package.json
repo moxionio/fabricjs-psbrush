@@ -37,7 +37,7 @@
   },
   "homepage": "https://github.com/arch-inc/fabricjs-psbrush#readme",
   "dependencies": {
-    "fabric": "^4.5.1"
+    "fabric": "^4.6.0"
   },
   "devDependencies": {
     "@types/fabric": "^4.5.1",
