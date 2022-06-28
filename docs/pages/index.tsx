@@ -139,8 +139,18 @@ const Index: NextPage = () => {
               Draw anything on the white blank canvas shown below; tested on
               iPad Pro and Surface Go.
             </p>
+
+            <div className="ui message">
+              <div className="header">
+                Looking for the development page?
+              </div>
+              <p>This is the static documentation page which loads its javascript from a CDN. Your changes to the code will not be reflected here.
+                To go to the development page, navigate to <a href="import">/import</a></p>
+            </div>
             <div className="ui divider"></div>
+
           </div>
+
           <div className="canvas">{canvas}</div>
         </div>
       </div>

@@ -5,6 +5,8 @@
  * fabricjs-psbrush, a lightweight pressure-sensitive brush implementation for Fabric.js
  * @license MIT
  */
+import {Color} from "fabric/fabric-impl";
+
 const fabricjs: typeof fabric =
   typeof fabric === "undefined" ? require("fabric").fabric : fabric;
 
@@ -15,7 +17,7 @@ import {
   FabricPointerEvent,
   getPressure
 } from "./utils";
-import PSStroke, { PSStrokeIface } from "./PSStroke";
+import PSStroke, {opacitySteps, PSStrokeIface} from "./PSStroke";
 import PSPoint from "./PSPoint";
 
 const minPressure = 0.0001;
@@ -58,13 +60,15 @@ const PSBrushImpl = <any>fabricjs.util.createClass(fabricjs.BaseBrush, {
    */
   _drawSegment: function(ctx, p1, p2) {
     var midPoint = p1.midPointFrom(p2);
-    ctx.lineWidth = p1.pressure * this.width;
+    // ctx.lineWidth = p1.pressure * this.width;
+    ctx.lineWidth = this.width;
     ctx.quadraticCurveTo(p1.x, p1.y, midPoint.x, midPoint.y);
+    // ctx.lineTo(p2.x, p2.y);
     return midPoint;
   },
 
   /**
-   * Inovoked on mouse down
+   * Invoked on mouse down
    * @param {Object} pointer
    * @param {Object} ev
    */
@@ -80,7 +84,7 @@ const PSBrushImpl = <any>fabricjs.util.createClass(fabricjs.BaseBrush, {
   },
 
   /**
-   * Inovoked on mouse move
+   * Invoked on mouse move
    * @param {Object} pointer
    * @param {Object} ev
    */
@@ -89,32 +93,61 @@ const PSBrushImpl = <any>fabricjs.util.createClass(fabricjs.BaseBrush, {
     const e = ev ? ev.e : pointer["e"] || null;
 
     if (this._captureDrawingPath(p, e) && this._points.length > 1) {
+
+/*
       if (this.needsFullRender) {
         // redraw curve
         // clear top canvas
         this.canvas.clearContext(this.canvas.contextTop);
         this._render();
       } else {
+*/
         const points = this._points,
           length = points.length,
           ctx = this.canvas.contextTop;
 
+        console.log(`### onMouseMove`, points);
+
         // draw the curve update
         this._saveAndTransform(ctx);
-        if (this.oldEnd) {
-          ctx.beginPath();
-          ctx.moveTo(this.oldEnd.x, this.oldEnd.y);
+
+        let oldEnd;
+        for (let i = 0; i < 1; i++) {
+          oldEnd = this.oldEnd;
+
+          if (oldEnd) {
+            ctx.lineCap = this.strokeLineCap;
+            ctx.lineJoin = this.strokeLineJoin;
+            ctx.lineWidth = this.strokeWidth;
+
+            let strokeColor = new fabricjs.Color(this.color);
+            strokeColor.setAlpha(e.pressure);
+            ctx.strokeStyle = strokeColor.toRgba();
+
+//            ctx.globalCompositeOperation = 'source-atop';
+
+            ctx.beginPath();
+            ctx.moveTo(oldEnd.x, oldEnd.y);
+          }
+
+          let strokeColor = new fabricjs.Color(this.color);
+          strokeColor.setAlpha(points[length - 2].pressure);
+          ctx.strokeStyle = strokeColor.toRgba();
+
+          oldEnd = this._drawSegment(
+            ctx,
+            points[length - 2],
+            points[length - 1],
+            true
+          );
+
+          ctx.stroke();
+          ctx.restore();
         }
-        this.oldEnd = this._drawSegment(
-          ctx,
-          points[length - 2],
-          points[length - 1],
-          true
-        );
-        ctx.stroke();
-        ctx.restore();
+
+        this.oldEnd = oldEnd;
       }
-    }
+//  }
   },
 
   /**
@@ -168,9 +201,10 @@ const PSBrushImpl = <any>fabricjs.util.createClass(fabricjs.BaseBrush, {
   _reset: function() {
     this._points.length = 0;
     this._setBrushStyles();
-    var color = new fabricjs.Color(this.color);
-    this.needsFullRender = color.getAlpha() < 1;
-    // this._setShadow();
+
+    // var color = new fabricjs.Color(this.color);
+    // this.needsFullRender = color.getAlpha() < 1; // MFH disabled for performance - probably can't get away with it.
+    this.needsFullRender = false;
   },
 
   /**
@@ -215,6 +249,8 @@ const PSBrushImpl = <any>fabricjs.util.createClass(fabricjs.BaseBrush, {
   },
 
   _redrawSegments: function(points) {
+    console.log(`### _redrawSegments`);
+
     const ctx = this.canvas.contextTop;
     this._saveAndTransform(ctx);
     if (this.oldEnd) {

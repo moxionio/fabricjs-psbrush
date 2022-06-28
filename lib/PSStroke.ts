@@ -9,6 +9,8 @@ export interface PSStrokeIface extends fabric.Object {
   strokePoints: PSPoint[];
 }
 
+export const opacitySteps = 10;
+
 const min = fabricjs.util.array.min as (
     arr: any[],
     byProperty?: string
@@ -64,7 +66,7 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
      * @param {Object} [options] Options object
      * @return {Stroke} thisArg
      */
-    initialize: function(strokePoints: PSPoint[], options: any): void {
+    initialize: function (strokePoints: PSPoint[], options: any): void {
       options = options || {};
       this.callSuper("initialize", options);
 
@@ -78,12 +80,12 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
      * @private
      * @param {Object} options Options object
      */
-    _setPositionDimensions: function(options: any): void {
+    _setPositionDimensions: function (options: any): void {
       var calcDim = this._parseDimensions();
       this.width = calcDim.width;
       this.height = calcDim.height;
 
-      // respect positon in `options` for grouped stroke
+      // respect position in `options` for grouped stroke
       if (
         typeof options.left == "undefined" &&
         typeof options.top == "undefined"
@@ -101,7 +103,9 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
      * @private
      * @param {CanvasRenderingContext2D} ctx context to render stroke on
      */
-    _renderStroke: function(ctx: CanvasRenderingContext2D): void {
+    _renderStroke_orig: function (ctx: CanvasRenderingContext2D): void {
+      console.log(`### _renderStroke`);
+
       let i: number,
         strokeWidth = this.strokeWidth / 1000,
         p1 = this.strokePoints[0],
@@ -119,14 +123,14 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
           this.strokePoints[2].x < p2.x
             ? -1
             : this.strokePoints[2].x === p2.x
-            ? 0
-            : 1;
+              ? 0
+              : 1;
         multSignY =
           this.strokePoints[2].y < p2.y
             ? -1
             : this.strokePoints[2].y === p2.y
-            ? 0
-            : 1;
+              ? 0
+              : 1;
       }
 
       // const v = this.canvas.viewportTransform;
@@ -144,18 +148,27 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
         p2.x += strokeWidth;
         mid.x = p1.x;
       }
-      
-      ctx.strokeStyle = this.stroke;
-			ctx.lineCap = this.strokeLineCap;
-			ctx.lineJoin = this.strokeLineJoin;
 
-      for (i = 1, len = this.strokePoints.length; i < len; i++) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineCap = this.strokeLineCap;
+      ctx.lineJoin = this.strokeLineJoin;
+
+      for (i = 0, len = this.strokePoints.length; i < len; i++) {
+        p1 = this.strokePoints[i];
+
+        let strokeColor = new fabricjs.Color(this.color);
+        strokeColor.setAlpha(p1.pressure);
+        ctx.strokeStyle = strokeColor.toRgba();
+
         ctx.beginPath();
         ctx.moveTo(
           mid.x - multSignX * strokeWidth + l,
           mid.y - multSignY * strokeWidth + t
         );
-        ctx.lineWidth = p1.pressure * this.strokeWidth;
+
+        //ctx.lineWidth = this.strokeWidth * p1.pressure;
+        ctx.lineWidth = this.strokeWidth;
+
         // we pick the point between pi + 1 & pi + 2 as the
         // end point and p1 as our control point.
         mid = p1.midPointFrom(p2);
@@ -165,13 +178,71 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
           mid.x - multSignX * strokeWidth + l,
           mid.y - multSignY * strokeWidth + t
         );
-        p1 = this.strokePoints[i];
-        p2 = this.strokePoints[i + 1];
-      
+
         ctx.stroke();
       }
 
       // ctx.restore();
+    },
+
+
+    _renderStroke: function (ctx: CanvasRenderingContext2D): void {
+      let i: number;
+
+      const left = -this.strokeOffset.x;
+      const top = -this.strokeOffset.y;
+
+      ctx.lineCap = this.strokeLineCap;
+      ctx.lineJoin = this.strokeLineJoin;
+      ctx.lineWidth = this.strokeWidth;
+      console.trace(`### _renderStroke -> strokeWidth: ${this.strokeWidth}`);
+
+      let strokeColor = new fabricjs.Color(this.color);
+      strokeColor.setAlpha(1 / opacitySteps);
+      ctx.strokeStyle = strokeColor.toRgba();
+
+      const len = this.strokePoints.length;
+
+      for (let overdrawIndex = 1; overdrawIndex <= opacitySteps; overdrawIndex++) {
+        const opacityCap = (1 / opacitySteps) * overdrawIndex;
+
+        let stroking = false;
+
+        for (i = 0; i < len; i++) {
+          const p1 = this.strokePoints[i];
+
+          const isP1InOpacityRange = p1.pressure >= opacityCap;
+
+          if (isP1InOpacityRange) {
+            if (!stroking) {
+              // console.log(`### _renderStroke -> beginPath()`);
+              ctx.beginPath();
+
+              // console.log(`### _renderStroke -> moveTo ${p1.x} ${p1.y}`);
+              ctx.moveTo(p1.x + left, p1.y + top);
+              stroking = true;
+            } else {
+              // console.log(`### _renderStroke -> lineTo ${p1.x} ${p1.y}`);
+
+              ctx.lineTo(p1.x + left, p1.y + top);
+            }
+          } else {
+            if (stroking) {
+              ctx.stroke();
+              stroking = false;
+
+              // console.log(`### _renderStroke -> stroking`);
+            }
+          }
+        }
+
+        // close the last line segment, if any
+        if (stroking) {
+          ctx.stroke();
+          stroking = false;
+          // console.log(`### _renderStroke + final stroke at ${i}`);
+        }
+      }
     },
 
     /**
@@ -180,7 +251,7 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
      */
     _render: function(ctx: CanvasRenderingContext2D): void {
       this._renderStroke(ctx);
-      this._renderPaintInOrder(ctx);
+//      this._renderPaintInOrder(ctx);
     },
 
     /**
@@ -305,7 +376,7 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
     },
 
     /**
-     * Calculate 'bounding box' of storke.
+     * Calculate 'bounding box' of stroke.
      * @private
      */
     _parseDimensions: function() {
@@ -371,7 +442,7 @@ const PSStrokeImpl = <any>fabricjs.util.createClass(
         };
       };
 
-      // belows are almost same function with _renderStorke, but some calling functions are ignored, and DummyCtx is used instead of normal Canvas context
+      // belows are almost same function with _renderStroke, but some calling functions are ignored, and DummyCtx is used instead of normal Canvas context
       var ctx = new DummyCtx(),
         i,
         len,

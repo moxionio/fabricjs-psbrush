@@ -90,4 +90,16 @@ Twitter [@ArchResearchJp](https://twitter.com/ArchResearchJp) で連絡がつき
 - [Griffith Sketch](https://gs.archinc.jp/): a web-based lightweight tool for sketching ideas.
 
 ---
+
+### Development
+
+`npm run watch` To begin watching the source for changes and recompiling. 
+
+`npm run dev-pages` Navigate to http://localhost:3000/import for the dev page
+
+Recommend running both these commands at once for development. 
+Running the dev pages will not watch for changes and recompile automatically. You'll need to reload
+your browser to see changes.
+
+
 Copyright (c) 2020-2021 Arch Inc. (Jun Kato, Kenta Hara)

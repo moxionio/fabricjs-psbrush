@@ -28,8 +28,9 @@ const Index: NextPage = () => {
       import("../../").then(({ PSBrush }) => {
         // Initialize a brush
         let brush = new PSBrush(canvas);
-        brush.width = 10;
-        brush.color = "#000";
+        brush.width = 2;
+//        brush.color = "#000";
+        brush.color = "#000000";
         canvas.freeDrawingBrush = brush;
       });
     });
